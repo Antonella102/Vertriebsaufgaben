@@ -153,10 +153,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
 
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
-  <div id="configWarning">
-    <strong>Einrichtung nötig:</strong> Trage deine Azure Client ID in den Code ein.<br>
-    Suche nach <code>5d688483-9f86-4c9d-86a6-ac78798a3ff1</code> und ersetze es durch deine Client ID aus dem Azure Portal.
-  </div>
+
   <div class="login-card">
     <div class="login-logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -274,7 +271,7 @@ const SCOPES = ['Files.ReadWrite', 'User.Read'];
 let msalInstance, token, todos = [], filter = 'alle', saveTimer;
 
 function isConfigured() {
-  return MSAL_CONFIG.clientId !== '5d688483-9f86-4c9d-86a6-ac78798a3ff1';
+  return true;
 }
 
 async function initMsal() {
