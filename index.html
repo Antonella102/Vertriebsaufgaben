@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vertrieb Todos</title>
+
+<!-- =====================================================
+     SCHRITT 1: Trage hier deine Azure Client ID ein
+     ===================================================== -->
+<script>
+  const MSAL_CONFIG = {
+    clientId: "5d688483-9f86-4c9d-86a6-ac78798a3ff1",
+    // Redirect URI = die URL dieser Seite (GitHub Pages URL)
+    // Beispiel: "https://DEIN-NAME.github.io/vertrieb-todos/"
+    redirectUri: window.location.origin + window.location.pathname
+  };
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.11.1/lib/msal-browser.min.js"></script>
+
+<style>
+:root {
+  --bg:#f4f6f9;--surface:#fff;--surface2:#f0f3f7;
+  --accent:#1D9E75;--accent-light:#E1F5EE;--accent-dark:#0F6E56;
+  --text:#1a1a2e;--text-muted:#6b7280;--border:rgba(0,0,0,0.1);
+  --danger:#E24B4A;--danger-light:#FCEBEB;
+  --radius:12px;--shadow:0 2px 8px rgba(0,0,0,0.08);
+  --info-bg:#E6F1FB;--info-text:#185FA5;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0f1117;--surface:#1c1f26;--surface2:#252830;
+  --accent:#1D9E75;--accent-light:#04342C;--accent-dark:#5DCAA5;
+  --text:#e8eaf0;--text-muted:#9ca3af;--border:rgba(255,255,255,0.1);
+  --danger:#f09595;--danger-light:#501313;--shadow:0 2px 8px rgba(0,0,0,0.3);
+  --info-bg:#042C53;--info-text:#85B7EB;
+}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;}
+
+/* ---- Login Screen ---- */
+#loginScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:20px;}
+.login-card{background:var(--surface);border-radius:16px;border:1px solid var(--border);box-shadow:var(--shadow);padding:32px 28px;max-width:360px;width:100%;text-align:center;}
+.login-logo{width:52px;height:52px;background:var(--accent-light);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+.login-logo svg{width:26px;height:26px;color:var(--accent);}
+.login-card h1{font-size:20px;font-weight:700;margin-bottom:6px;color:var(--text);}
+.login-card p{font-size:14px;color:var(--text-muted);line-height:1.5;margin-bottom:22px;}
+.btn-login{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:background .15s;}
+.btn-login:hover{background:var(--accent-dark);}
+.btn-login svg{width:18px;height:18px;}
+.login-note{font-size:12px;color:var(--text-muted);text-align:center;max-width:320px;line-height:1.5;}
+
+/* ---- Config Warning ---- */
+#configWarning{display:none;background:#FAEEDA;border:1px solid #EF9F27;border-radius:10px;padding:14px 16px;max-width:420px;font-size:13px;color:#854F0B;line-height:1.6;text-align:left;}
+#configWarning code{background:rgba(0,0,0,0.08);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px;}
+@media(prefers-color-scheme:dark){#configWarning{background:#412402;border-color:#EF9F27;color:#FAC775;}}
+
+/* ---- App ---- */
+#app{display:none;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 15px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.logo{font-size:17px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:7px;}
+.logo svg{width:20px;height:20px;}
+.header-right{display:flex;align-items:center;gap:8px;}
+.stats{font-size:13px;color:var(--text-muted);}
+.stats span{color:var(--accent);font-weight:600;}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--text-muted);font-size:13px;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;}
+.icon-btn:hover{background:var(--surface2);color:var(--text);}
+.icon-btn svg{width:13px;height:13px;}
+.user-chip{font-size:12px;color:var(--text-muted);background:var(--surface2);padding:4px 10px;border-radius:20px;border:1px solid var(--border);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.sync-bar{background:var(--info-bg);padding:7px 14px;font-size:12px;color:var(--info-text);display:flex;align-items:center;gap:6px;}
+.sync-bar.hidden{display:none;}
+.sync-bar.error{background:var(--danger-light);color:var(--danger);}
+@media(prefers-color-scheme:dark){.sync-bar.error{color:#f09595;}}
+.spinner{width:13px;height:13px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.filter-bar{display:flex;gap:7px;padding:9px 13px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.filter-bar::-webkit-scrollbar{display:none;}
+.filter-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+.add-form{margin:13px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.add-form textarea{width:100%;padding:12px 14px;border:none;background:transparent;color:var(--text);font-size:15px;font-family:inherit;resize:none;min-height:48px;outline:none;line-height:1.4;}
+.add-form textarea::placeholder{color:var(--text-muted);}
+.add-form-footer{display:flex;align-items:center;padding:7px 10px;gap:7px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.add-form select{flex:1;min-width:110px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;outline:none;}
+.btn-add{padding:8px 15px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-left:auto;}
+.btn-add:hover{background:var(--accent-dark);}
+.btn-add:disabled{opacity:.5;cursor:not-allowed;}
+
+.list{padding:0 13px;display:flex;flex-direction:column;gap:9px;}
+.todo-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;transition:opacity .2s;}
+.todo-card.done{opacity:.7;}
+.todo-card-inner{display:flex;align-items:flex-start;padding:12px 12px 9px;gap:11px;}
+.check-btn{flex-shrink:0;width:22px;height:22px;border-radius:50%;border:2px solid var(--accent);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:all .15s;}
+.todo-card.done .check-btn{background:var(--accent);}
+.check-btn svg{width:12px;height:12px;}
+.todo-body{flex:1;min-width:0;}
+.todo-text{font-size:15px;line-height:1.45;color:var(--text);word-break:break-word;}
+.todo-card.done .todo-text{text-decoration:line-through;color:var(--text-muted);}
+.todo-edit-area{width:100%;padding:3px 0;border:none;border-bottom:1px solid var(--accent);background:transparent;color:var(--text);font-size:15px;font-family:inherit;line-height:1.45;outline:none;resize:none;display:none;}
+.todo-meta{margin-top:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;}
+.tag-hoch{background:#FCEBEB;color:#A32D2D;}
+.tag-mittel{background:#FAEEDA;color:#854F0B;}
+.tag-niedrig{background:#EAF3DE;color:#3B6D11;}
+@media(prefers-color-scheme:dark){
+  .tag-hoch{background:#501313;color:#F7C1C1;}
+  .tag-mittel{background:#412402;color:#FAC775;}
+  .tag-niedrig{background:#173404;color:#C0DD97;}
+}
+.todo-date{font-size:11px;color:var(--text-muted);}
+.todo-actions{display:flex;border-top:1px solid var(--border);}
+.action-btn{flex:1;padding:8px 0;background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--text-muted);transition:background .1s,color .1s;display:flex;align-items:center;justify-content:center;gap:4px;}
+.action-btn:not(:last-child){border-right:1px solid var(--border);}
+.action-btn:hover{background:var(--surface2);}
+.action-btn.del:hover{background:var(--danger-light);color:var(--danger);}
+.action-btn.savebtn{color:var(--accent);font-weight:600;display:none;}
+.action-btn svg{width:13px;height:13px;}
+.section-header{padding:13px 13px 6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);}
+.empty{text-align:center;padding:42px 24px;color:var(--text-muted);font-size:15px;}
+
+/* Import Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:18px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:var(--radius);width:100%;max-width:450px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--border);}
+.modal-header h3{font-size:15px;font-weight:600;}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1;padding:0 4px;}
+.modal-body{padding:15px;}
+.modal-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:13px;}
+.modal-tab{flex:1;padding:8px;background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--text-muted);transition:all .15s;}
+.modal-tab.active{background:var(--accent);color:#fff;font-weight:600;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.hint-box{background:var(--surface2);border-radius:8px;padding:11px 13px;font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:10px;}
+.hint-box code{background:var(--accent-light);color:var(--accent-dark);padding:1px 5px;border-radius:4px;font-size:12px;font-family:monospace;}
+@media(prefers-color-scheme:dark){.hint-box code{color:#9FE1CB;}}
+.modal-input{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;outline:none;margin-bottom:9px;}
+.modal-input:focus{border-color:var(--accent);}
+.modal-input.ta{min-height:76px;resize:vertical;}
+.modal-row{display:flex;gap:8px;margin-bottom:9px;}
+.modal-row select{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:14px;outline:none;}
+.btn-primary{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-primary:hover{background:var(--accent-dark);}
+
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a2e;color:#fff;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;z-index:999;transition:transform .25s;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div id="configWarning">
+    <strong>Einrichtung nötig:</strong> Trage deine Azure Client ID in den Code ein.<br>
+    Suche nach <code>5d688483-9f86-4c9d-86a6-ac78798a3ff1</code> und ersetze es durch deine Client ID aus dem Azure Portal.
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    </div>
+    <h1>Vertrieb Todos</h1>
+    <p>Anmelden mit deinem Microsoft-Account. Todos werden in deinem OneDrive gespeichert.</p>
+    <button class="btn-login" onclick="login()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Mit Microsoft anmelden
+    </button>
+  </div>
+  <div class="login-note">
+    Deine Todos werden als <strong>Vertrieb-Todos.json</strong> in deinem OneDrive gespeichert.<br>
+    Kein externes System — alles bleibt bei dir.
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Vertrieb Todos
+    </div>
+    <div class="header-right">
+      <div class="stats"><span id="stat-open">0</span> offen</div>
+      <button class="icon-btn" onclick="openModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import
+      </button>
+      <button class="icon-btn" onclick="logout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="sync-bar hidden" id="syncBar">
+    <div class="spinner"></div>
+    <span id="syncMsg">Synchronisiere mit OneDrive...</span>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFilter('alle')">Alle</button>
+    <button class="filter-btn" onclick="setFilter('offen')">Offen</button>
+    <button class="filter-btn" onclick="setFilter('erledigt')">Erledigt</button>
+    <button class="filter-btn" onclick="setFilter('hoch')">Hoch</button>
+    <button class="filter-btn" onclick="setFilter('mittel')">Mittel</button>
+    <button class="filter-btn" onclick="setFilter('niedrig')">Niedrig</button>
+  </div>
+
+  <div class="add-form">
+    <textarea id="newText" placeholder="Neues Todo eingeben..." rows="2" oninput="autoResize(this)"></textarea>
+    <div class="add-form-footer">
+      <select id="newPrio">
+        <option value="mittel">Mittel</option>
+        <option value="hoch">Hoch</option>
+        <option value="niedrig">Niedrig</option>
+      </select>
+      <button class="btn-add" id="btnAdd" onclick="addTodo()">+ Hinzufügen</button>
+    </div>
+  </div>
+
+  <div id="todoList"></div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Todo aus Chat importieren</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="switchTab('paste')">Schnell-Import</button>
+        <button class="modal-tab" onclick="switchTab('json')">JSON-Import</button>
+      </div>
+      <div class="tab-panel active" id="tab-paste">
+        <div class="hint-box">
+          Claude schreibt dir in jedem Chat:<br>
+          <code>TODO: Angebot Müller | Prio: hoch</code><br>
+          Einfach hier reinkopieren.
+        </div>
+        <textarea class="modal-input ta" id="pasteInput" placeholder="TODO: Angebot Kanzlei Müller nachfassen | Prio: hoch"></textarea>
+        <div class="modal-row">
+          <select id="pastePrio">
+            <option value="mittel">Priorität (Fallback): Mittel</option>
+            <option value="hoch">Priorität (Fallback): Hoch</option>
+            <option value="niedrig">Priorität (Fallback): Niedrig</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="importPaste()">Todo hinzufügen</button>
+      </div>
+      <div class="tab-panel" id="tab-json">
+        <div class="hint-box">
+          Claude gibt dir einen JSON-Block — direkt reinkopieren.<br>
+          Mehrere Todos gleichzeitig möglich.
+        </div>
+        <textarea class="modal-input ta" id="jsonInput" placeholder='[{"text":"Angebot senden","prio":"hoch"},{"text":"Follow-up Muster GmbH","prio":"mittel"}]'></textarea>
+        <button class="btn-primary" onclick="importJson()">Importieren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// -------------------------------------------------------
+// MSAL + Graph API Setup
+// -------------------------------------------------------
+const GRAPH_FILE = 'Vertrieb-Todos.json';
+const SCOPES = ['Files.ReadWrite', 'User.Read'];
+
+let msalInstance, token, todos = [], filter = 'alle', saveTimer;
+
+function isConfigured() {
+  return MSAL_CONFIG.clientId !== '5d688483-9f86-4c9d-86a6-ac78798a3ff1';
+}
+
+async function initMsal() {
+  if (!isConfigured()) {
+    document.getElementById('configWarning').style.display = 'block';
+    return;
+  }
+  msalInstance = new msal.PublicClientApplication({
+    auth: {
+      clientId: MSAL_CONFIG.clientId,
+      authority: 'https://login.microsoftonline.com/common',
+      redirectUri: MSAL_CONFIG.redirectUri
+    },
+    cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+  });
+  await msalInstance.initialize();
+
+  // Handle redirect response
+  try {
+    const resp = await msalInstance.handleRedirectPromise();
+    if (resp) { token = resp.accessToken; await startApp(resp.account); return; }
+  } catch(e) { console.error(e); }
+
+  // Check existing session
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    try {
+      const resp = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+      token = resp.accessToken;
+      await startApp(accounts[0]);
+    } catch(e) { /* silent fail — show login */ }
+  }
+}
+
+async function login() {
+  if (!isConfigured()) { showToast('Bitte erst Client ID eintragen'); return; }
+  await msalInstance.loginRedirect({ scopes: SCOPES });
+}
+
+function logout() {
+  msalInstance.logoutRedirect();
+}
+
+async function getToken() {
+  const accounts = msalInstance.getAllAccounts();
+  if (!accounts.length) return null;
+  try {
+    const resp = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    return resp.accessToken;
+  } catch(e) {
+    const resp = await msalInstance.acquireTokenPopup({ scopes: SCOPES });
+    return resp.accessToken;
+  }
+}
+
+// -------------------------------------------------------
+// OneDrive Read / Write
+// -------------------------------------------------------
+async function loadFromOneDrive() {
+  showSync('Lade Todos aus OneDrive...');
+  try {
+    const t = await getToken();
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/root:/${GRAPH_FILE}:/content`,
+      { headers: { Authorization: `Bearer ${t}` } }
+    );
+    if (res.status === 404) { todos = []; hideSync(); return; }
+    if (!res.ok) throw new Error(res.status);
+    todos = await res.json();
+    hideSync();
+  } catch(e) {
+    showSync('Fehler beim Laden — prüfe deine Verbindung', true);
+    todos = [];
+  }
+  render();
+}
+
+async function saveToOneDrive() {
+  try {
+    const t = await getToken();
+    await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/root:/${GRAPH_FILE}:/content`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(todos, null, 2)
+      }
+    );
+    hideSync();
+  } catch(e) {
+    showSync('Speichern fehlgeschlagen', true);
+  }
+}
+
+function scheduleSave() {
+  showSync('Speichere...');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveToOneDrive(), 1200);
+}
+
+// -------------------------------------------------------
+// App init
+// -------------------------------------------------------
+async function startApp(account) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await loadFromOneDrive();
+}
+
+// -------------------------------------------------------
+// UI Helpers
+// -------------------------------------------------------
+function showSync(msg, isError = false) {
+  const bar = document.getElementById('syncBar');
+  bar.className = 'sync-bar' + (isError ? ' error' : '');
+  document.getElementById('syncMsg').textContent = msg;
+}
+function hideSync() { document.getElementById('syncBar').className = 'sync-bar hidden'; }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function fmtDate(ts) { return new Date(ts).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// -------------------------------------------------------
+// Todo Logic
+// -------------------------------------------------------
+function setFilter(f) {
+  filter = f;
+  document.querySelectorAll('.filter-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim().toLowerCase() === f || (f==='alle' && b.textContent.trim()==='Alle'))
+  );
+  render();
+}
+
+function addTodo(text, prio) {
+  const t = (text || document.getElementById('newText').value).trim();
+  const p = prio || document.getElementById('newPrio').value;
+  if (!t) return;
+  todos.unshift({ id: genId(), text: t, prio: p, done: false, created: Date.now() });
+  if (!text) { document.getElementById('newText').value = ''; document.getElementById('newText').style.height = ''; }
+  scheduleSave(); render(); showToast('Todo gespeichert');
+}
+
+function toggleDone(id) {
+  const t = todos.find(x => x.id === id);
+  if (t) { t.done = !t.done; scheduleSave(); render(); showToast(t.done ? 'Erledigt!' : 'Wieder geöffnet'); }
+}
+
+function startEdit(id) {
+  const c = document.getElementById('c' + id);
+  c.querySelector('.todo-text').style.display = 'none';
+  const ea = c.querySelector('.todo-edit-area');
+  ea.style.display = 'block'; ea.value = todos.find(x => x.id === id).text;
+  ea.style.height = 'auto'; ea.style.height = ea.scrollHeight + 'px'; ea.focus();
+  c.querySelector('.savebtn').style.display = 'flex';
+  const eb = c.querySelector('.editbtn'); if (eb) eb.style.display = 'none';
+}
+
+function saveEdit(id) {
+  const c = document.getElementById('c' + id);
+  const val = c.querySelector('.todo-edit-area').value.trim();
+  const t = todos.find(x => x.id === id);
+  if (t && val) { t.text = val; scheduleSave(); render(); showToast('Gespeichert'); }
+}
+
+function deleteTodo(id) {
+  todos = todos.filter(x => x.id !== id);
+  scheduleSave(); render(); showToast('Gelöscht');
+}
+
+// -------------------------------------------------------
+// Import Modal
+// -------------------------------------------------------
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function switchTab(name) {
+  document.querySelectorAll('.modal-tab').forEach((b,i) => b.classList.toggle('active', ['paste','json'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function importPaste() {
+  let raw = document.getElementById('pasteInput').value.trim();
+  let text = raw, prio = document.getElementById('pastePrio').value;
+  const m = raw.match(/^TODO:\s*(.+?)(?:\s*\|\s*Prio:\s*(\w+))?$/i);
+  if (m) {
+    text = m[1].trim();
+    if (m[2]) { const p = m[2].toLowerCase(); if (['hoch','mittel','niedrig'].includes(p)) prio = p; }
+  }
+  if (!text) { showToast('Kein Text eingegeben'); return; }
+  addTodo(text, prio);
+  document.getElementById('pasteInput').value = '';
+  closeModal();
+}
+
+function importJson() {
+  try {
+    const data = JSON.parse(document.getElementById('jsonInput').value.trim());
+    const arr = Array.isArray(data) ? data : [data];
+    let count = 0;
+    arr.forEach(item => {
+      if (item.text) {
+        const p = ['hoch','mittel','niedrig'].includes(item.prio) ? item.prio : 'mittel';
+        todos.unshift({ id: genId(), text: item.text, prio: p, done: false, created: Date.now() });
+        count++;
+      }
+    });
+    if (count) { scheduleSave(); render(); document.getElementById('jsonInput').value = ''; closeModal(); showToast(count + ' Todo(s) importiert'); }
+    else showToast('Keine gültigen Todos gefunden');
+  } catch(e) { showToast('Ungültiges JSON'); }
+}
+
+// -------------------------------------------------------
+// Render
+// -------------------------------------------------------
+function render() {
+  const open = todos.filter(t => !t.done).length;
+  const done = todos.filter(t => t.done).length;
+  document.getElementById('stat-open').textContent = open;
+
+  const f = todos.filter(t => {
+    if (filter === 'offen') return !t.done;
+    if (filter === 'erledigt') return t.done;
+    if (['hoch','mittel','niedrig'].includes(filter)) return t.prio === filter && !t.done;
+    return true;
+  });
+
+  const list = document.getElementById('todoList');
+  if (!f.length) { list.innerHTML = '<div class="empty">Keine Todos in dieser Ansicht</div>'; return; }
+
+  const pl = { hoch:'Hoch', mittel:'Mittel', niedrig:'Niedrig' };
+  const openItems = f.filter(t => !t.done);
+  const doneItems = f.filter(t => t.done);
+
+  const card = t => `<div class="todo-card${t.done?' done':''}" id="c${t.id}">
+    <div class="todo-card-inner">
+      <button class="check-btn" onclick="toggleDone('${t.id}')">
+        ${t.done ? '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+      </button>
+      <div class="todo-body">
+        <div class="todo-text">${escHtml(t.text)}</div>
+        <textarea class="todo-edit-area" oninput="autoResize(this)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveEdit('${t.id}')}"></textarea>
+        <div class="todo-meta">
+          <span class="tag tag-${t.prio}">${pl[t.prio]}</span>
+          <span class="todo-date">${fmtDate(t.created)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="todo-actions">
+      <button class="action-btn editbtn" onclick="startEdit('${t.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Bearbeiten
+      </button>
+      <button class="action-btn savebtn" onclick="saveEdit('${t.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Speichern
+      </button>
+      <button class="action-btn del" onclick="deleteTodo('${t.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Löschen
+      </button>
+    </div>
+  </div>`;
+
+  let html = '';
+  if (openItems.length) {
+    if (filter === 'alle') html += `<div class="section-header">Offen (${openItems.length})</div>`;
+    html += '<div class="list">' + openItems.map(card).join('') + '</div>';
+  }
+  if (doneItems.length) {
+    html += `<div class="section-header" style="margin-top:8px">Erledigt (${doneItems.length})</div>`;
+    html += '<div class="list">' + doneItems.map(card).join('') + '</div>';
+  }
+  list.innerHTML = html;
+}
+
+document.getElementById('newText').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTodo(); }
+});
+
+// Start
+initMsal();
+</script>
+</body>
+</html>
