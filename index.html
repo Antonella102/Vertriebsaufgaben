@@ -282,7 +282,7 @@ async function initMsal() {
   msalInstance = new msal.PublicClientApplication({
     auth: {
       clientId: MSAL_CONFIG.clientId,
-      authority: 'https://login.microsoftonline.com/common',
+      authority: 'https://login.microsoftonline.com/4daeec92-aa11-4627-963f-76eafcaad260',
       redirectUri: MSAL_CONFIG.redirectUri
     },
     cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
