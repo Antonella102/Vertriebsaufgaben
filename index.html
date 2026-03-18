@@ -557,6 +557,11 @@ function saveEdit(id) {
   if (t && val) { t.text = val; scheduleSave(); render(); showToast('Gespeichert'); }
 }
 
+function updateDeadline(id, val) {
+  const t = todos.find(x => x.id === id);
+  if (t) { t.deadline = val || null; scheduleSave(); render(); showToast('Deadline gespeichert'); }
+}
+
 function deleteTodo(id) {
   todos = todos.filter(x => x.id !== id);
   scheduleSave(); render(); showToast('Gelöscht');
@@ -641,8 +646,14 @@ function render() {
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveEdit('${t.id}')}"></textarea>
         <div class="todo-meta">
           <span class="tag tag-${t.prio}">${pl[t.prio]}</span>
-          ${t.deadline ? deadlineLabel(t.deadline) : ''}
           <span class="todo-date">${fmtDate(t.created)}</span>
+        </div>
+        <div class="todo-deadline-row" style="margin-top:7px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="date" class="card-deadline-input" value="${t.deadline||''}"
+            onchange="updateDeadline('${t.id}', this.value)"
+            style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;outline:none;font-family:inherit;">
+          ${t.deadline ? deadlineLabel(t.deadline) : '<span style="font-size:11px;color:var(--text-muted)">kein Datum</span>'}
         </div>
       </div>
     </div>
