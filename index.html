@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vertrieb Todos</title>
+<title>Vertrieb Todos v1.3.0</title>
 
 <!-- =====================================================
      SCHRITT 1: Trage hier deine Azure Client ID ein
@@ -111,7 +111,15 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
   .tag-niedrig{background:#173404;color:#C0DD97;}
 }
 .todo-date{font-size:11px;color:var(--text-muted);}
-.deadline{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;}
+.prio-select{padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;font-weight:500;outline:none;cursor:pointer;}
+.prio-select.hoch{background:#FCEBEB;color:#A32D2D;border-color:#F7C1C1;}
+.prio-select.mittel{background:#FAEEDA;color:#854F0B;border-color:#FAC775;}
+.prio-select.niedrig{background:#EAF3DE;color:#3B6D11;border-color:#C0DD97;}
+@media(prefers-color-scheme:dark){
+  .prio-select.hoch{background:#501313;color:#F7C1C1;border-color:#791F1F;}
+  .prio-select.mittel{background:#412402;color:#FAC775;border-color:#633806;}
+  .prio-select.niedrig{background:#173404;color:#C0DD97;border-color:#27500A;}
+}
 .deadline-overdue{background:#FCEBEB;color:#A32D2D;}
 .deadline-today{background:#FAEEDA;color:#854F0B;}
 .deadline-soon{background:#E6F1FB;color:#185FA5;}
@@ -192,7 +200,7 @@ header{background:var(--surface);border-bottom:1px solid var(--border);padding:1
   <header>
     <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      Vertrieb Todos
+      Vertrieb Todos <span style="font-size:10px;font-weight:400;color:var(--text-muted);margin-left:2px;">v1.3.0</span>
     </div>
     <div class="header-right">
       <div class="stats"><span id="stat-open">0</span> offen</div>
@@ -557,6 +565,11 @@ function saveEdit(id) {
   if (t && val) { t.text = val; scheduleSave(); render(); showToast('Gespeichert'); }
 }
 
+function updatePrio(id, val) {
+  const t = todos.find(x => x.id === id);
+  if (t) { t.prio = val; scheduleSave(); render(); }
+}
+
 function updateDeadline(id, val) {
   const t = todos.find(x => x.id === id);
   if (t) { t.deadline = val || null; scheduleSave(); render(); showToast('Deadline gespeichert'); }
@@ -632,7 +645,12 @@ function render() {
   if (!f.length) { list.innerHTML = '<div class="empty">Keine Todos in dieser Ansicht</div>'; return; }
 
   const pl = { hoch:'Hoch', mittel:'Mittel', niedrig:'Niedrig' };
-  const openItems = f.filter(t => !t.done);
+  const openItems = f.filter(t => !t.done).sort((a,b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
   const doneItems = f.filter(t => t.done);
 
   const card = t => `<div class="todo-card${t.done?' done':''}" id="c${t.id}">
@@ -645,7 +663,11 @@ function render() {
         <textarea class="todo-edit-area" oninput="autoResize(this)"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveEdit('${t.id}')}"></textarea>
         <div class="todo-meta">
-          <span class="tag tag-${t.prio}">${pl[t.prio]}</span>
+          <select class="prio-select ${t.prio}" onchange="updatePrio('${t.id}', this.value)">
+            <option value="hoch" ${t.prio==='hoch'?'selected':''}>Hoch</option>
+            <option value="mittel" ${t.prio==='mittel'?'selected':''}>Mittel</option>
+            <option value="niedrig" ${t.prio==='niedrig'?'selected':''}>Niedrig</option>
+          </select>
           <span class="todo-date">${fmtDate(t.created)}</span>
         </div>
         <div style="margin-top:7px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
